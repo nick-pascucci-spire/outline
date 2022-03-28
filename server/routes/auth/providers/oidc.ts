@@ -23,6 +23,8 @@ const OIDC_USERINFO_URI = process.env.OIDC_USERINFO_URI || "";
 const OIDC_SCOPES = process.env.OIDC_SCOPES || "";
 const OIDC_USERNAME_CLAIM =
   process.env.OIDC_USERNAME_CLAIM || "preferred_username";
+const OIDC_REQUIRE_GROUP =
+  process.env.OIDC_REQUIRE_GROUP || null;
 
 export const config = {
   name: OIDC_DISPLAY_NAME,
@@ -37,6 +39,14 @@ Strategy.prototype.userProfile = async function (accessToken, done) {
   } catch (err) {
     return done(err);
   }
+};
+
+type PassportProfile = {
+  email: string;
+  name: string;
+  picture: string;
+  sub: string;
+  groups?: Array<string>;
 };
 
 if (OIDC_CLIENT_ID) {
@@ -66,7 +76,7 @@ if (OIDC_CLIENT_ID) {
         req: any,
         accessToken: string,
         refreshToken: string,
-        profile: Record<string, string>,
+        profile: PassportProfile,
         done: any
       ) {
         try {
@@ -87,6 +97,15 @@ if (OIDC_CLIENT_ID) {
             throw AuthenticationError(
               `Domain ${domain} is not on the whitelist`
             );
+          }
+
+          if (OIDC_REQUIRE_GROUP) {
+            const groups = profile.groups || [];
+            if(!groups.includes(OIDC_REQUIRE_GROUP)) {
+              throw AuthenticationError(
+                `User does not belong to required group ${OIDC_REQUIRE_GROUP}`
+              );
+            }
           }
 
           const subdomain = domain.split(".")[0];
